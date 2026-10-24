@@ -104,6 +104,16 @@ def clean_url(site, url, allow_indexes=True):
             return None
     return urlunparse((origin.scheme, cfg["host"], path, "", query, ""))
 
+def topic_identity(site, url):
+    if not is_topic(site,url):
+        return None
+    path = urlparse(url).path
+    if site == "lpv":
+        m = re.search(r"/(\\d+)-[^/]+$",path)
+        return m.group(1) if m else None
+    m = re.search(r"/thread-(\\d+)",path)
+    return m.group(1) if m else None
+
 def is_topic(site, url):
     p = urlparse(url)
     if site == "lpv":
@@ -144,9 +154,13 @@ def crawl(site, out_path, max_pages, max_topics):
     fetched = 0
     fetched_topics = 0
     while fetched < max_pages:
+        indexes_indexed = db.execute("SELECT count(*) FROM pages WHERE level='index' AND status='ok'").fetchone()[0]
+        priority_index = indexes_indexed < (2 if site == "lpv" else 3)
         row = db.execute("""SELECT url,level FROM pages
                             WHERE status='pending' ORDER BY
-                            CASE level WHEN 'index' THEN 0 ELSE 1 END, url LIMIT 1""").fetchone()
+                            CASE WHEN level=? THEN 0 ELSE 1 END,
+                            CASE WHEN instr(url,'?')>0 THEN 1 ELSE 0 END,
+                            url LIMIT 1""",("index" if priority_index else "topic",)).fetchone()
         if not row:
             break
         url, level = row
@@ -205,11 +219,15 @@ def crawl(site, out_path, max_pages, max_topics):
             break
     data = [dict(url=u,status=s,title=t,sha256=h,post_markers=n,level=l,checked_at=dt)
             for u,s,t,h,n,l,dt in db.execute("SELECT url,status,title,page_sha256,post_markers,level,last_checked_utc FROM pages ORDER BY level,url")]
+    unique_topic_ids = set(topic_identity(site,x["url"]) for x in data if x["status"]=="ok" and is_topic(site,x["url"]))
+    discovered_topic_ids = set(topic_identity(site,x["url"]) for x in data if is_topic(site,x["url"]))
     report.update({"ended_utc":datetime.now(timezone.utc).isoformat(),
                    "pages_fetched_this_run":fetched,
                    "topics_fetched_this_run":fetched_topics,
                    "unique_urls_discovered":len(data),
                    "topics_discovered":sum(is_topic(site,x["url"]) for x in data),
+                   "unique_topics_discovered":len(discovered_topic_ids),
+                   "unique_topics_sampled":len(unique_topic_ids),
                    "total_pages_indexed":sum(x["status"]=="ok" for x in data),
                    "total_topic_pages_indexed":sum(x["status"]=="ok" and x["level"]=="topic" for x in data),
                    "post_block_occurrences":sum(x["post_markers"] or 0 for x in data if x["status"]=="ok"),
@@ -219,6 +237,8 @@ def crawl(site, out_path, max_pages, max_topics):
             f"- Pages indexed: {report['total_pages_indexed']}",
             f"- Topic pages indexed: {report['total_topic_pages_indexed']}",
             f"- Topic URLs discovered: {report['topics_discovered']}",
+            f"- Unique topics discovered: {report['unique_topics_discovered']}",
+            f"- Unique topics sampled: {report['unique_topics_sampled']}",
             f"- Post-block occurrences: {report['post_block_occurrences']} (not deduplicated posts)",
             f"- Fetch errors: {len(report['errors'])}","",
             "This is a bounded pilot, not a complete forum archive.","",
