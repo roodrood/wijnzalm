@@ -111,7 +111,7 @@ def run(site,out_dir,max_pages):
             if exc.code==429 or exc.code>=500:break
         except Exception as exc:
             failures.append(f"{url}: {type(exc).__name__}: {exc}")
-            conn.execute("UPDATE pages SET status=? WHERE url=?", "error",url)
+            conn.execute("UPDATE pages SET status=? WHERE url=?",("error",url))
             conn.commit()
             break
     pages=[{"url":u,"status":s,"sha256":h,"html_title":t,"post_markers":n} for u,s,h,t,n in
