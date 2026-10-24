@@ -18,6 +18,8 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Forum connectivity and robots checks
         run: python tools/probe_forums.py --output probe-results
+      - name: Inspect one robots-permitted topic per forum
+        run: python tools/structure_probe.py
       - name: Upload diagnostic report
         if: always()
         uses: actions/upload-artifact@v4
