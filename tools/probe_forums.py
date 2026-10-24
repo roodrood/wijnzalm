@@ -55,6 +55,31 @@ def robots_status(url):
         return {"http_status": None, "robots_readable": False,
                 "error": f"{type(exc).__name__}: {exc}"[:350]}
 
+def followup(site, origin):
+    """One LPV topic if robots allows; test Vinejo host variants without disabling TLS."""
+    if site == "vinejo":
+        variants = ["https://vinejo.freebb.be", "http://vinejo.freebb.be", "http://www.vinejo.freebb.be"]
+        return {"host_variants": [{"origin": u, **fetch_status(u + "/")} for u in variants]}
+    page = origin + "/forum/bourgognebeaujolais/47053-domaine-de-suremain"
+    req = Request(origin + "/robots.txt", headers={"User-Agent": USER_AGENT})
+    try:
+        with OPENER.open(req, timeout=12) as response:
+            if response.status != 200:
+                return {"topic_probe": "skipped_robots_not_200"}
+            parser = RobotFileParser()
+            parser.parse(response.read(256000).decode("utf-8", errors="replace").splitlines())
+            if not parser.can_fetch(USER_AGENT, page):
+                return {"topic_probe": "skipped_robots_disallow"}
+        req = Request(page, headers={"User-Agent": USER_AGENT, "Accept": "text/html"})
+        with OPENER.open(req, timeout=12) as response:
+            sample = response.read(256000)
+            return {"topic_probe": "allowed_sample_only", "topic_url": page,
+                    "http_status": response.status, "sample_bytes": len(sample),
+                    "kunena_marker": b"kunena" in sample.lower(),
+                    "suremain_marker": b"suremain" in sample.lower()}
+    except Exception as exc:
+        return {"topic_probe": "error", "error": f"{type(exc).__name__}: {exc}"[:350]}
+
 def probe_site(site, origin):
     domain = urlparse(origin).hostname
     result = {"site": site, "origin": origin,
@@ -68,6 +93,7 @@ def probe_site(site, origin):
     result["homepage"] = fetch_status(origin + "/")
     time.sleep(1.5)
     result["robots"] = robots_status(origin + "/robots.txt")
+    result["followup"] = followup(site, origin)
     result["verdict"] = ("network_reachable" if result["homepage"].get("http_status") == 200
                          else "needs_investigation")
     return result
@@ -82,7 +108,9 @@ def markdown_report(rows):
         r = row["robots"].get("http_status")
         lines.append(f'| {row["site"]} | {"OK" if row["dns"]["ok"] else "FAIL"} | '
                      f'{h if h is not None else "error"} | {r if r is not None else "error"} | {row["verdict"]} |')
-    lines.extend(["", "Next: review site policies and obtain required authorization before archiving forum content.", ""])
+    for row in rows:
+        lines.append(f'- {row["site"]} followup: {json.dumps(row.get("followup", {}), ensure_ascii=False)}')
+    lines.extend(["", "No discussion text is saved. Next: review rights before archiving.", ""])
     return "\n".join(lines)
 
 def main():
