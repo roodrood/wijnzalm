@@ -170,14 +170,19 @@ def crawl(site, out_path, max_pages, max_topics):
                 raise RuntimeError("page too large; no metadata indexed")
             parser = LinksAndMetadata()
             parser.feed(page.decode("utf-8",errors="replace"))
+            added_indexes = 0
             for link in parser.links:
                 nxt = clean_url(site,urljoin(url,link))
                 if not nxt:
                     continue
                 level_nxt = "topic" if is_topic(site,nxt) else "index"
-                # Only traverse top-level Vinejo category index, not dozens of pages by default
-                if site == "vinejo" and level_nxt == "index" and nxt.endswith("/"):
-                    continue
+                # Keep index traversal bounded so the budget reaches actual discussions.
+                if level_nxt == "index":
+                    if urlparse(nxt).query or added_indexes >= (4 if site == "vinejo" else 0):
+                        continue
+                    if site == "vinejo" and nxt.endswith("/"):
+                        continue
+                    added_indexes += 1
                 db.execute("INSERT OR IGNORE INTO pages(url,status,level) VALUES (?,?,?)",
                            (nxt,"pending",level_nxt))
             now = datetime.now(timezone.utc).isoformat()
