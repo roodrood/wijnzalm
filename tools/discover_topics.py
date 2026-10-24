@@ -109,9 +109,9 @@ def topic_identity(site, url):
         return None
     path = urlparse(url).path
     if site == "lpv":
-        m = re.search(r"/(\\d+)-[^/]+$",path)
+        m = re.search(r"/(\d+)-[^/]+$",path)
         return m.group(1) if m else None
-    m = re.search(r"/thread-(\\d+)",path)
+    m = re.search(r"/thread-(\d+)",path)
     return m.group(1) if m else None
 
 def is_topic(site, url):
@@ -219,8 +219,8 @@ def crawl(site, out_path, max_pages, max_topics):
             break
     data = [dict(url=u,status=s,title=t,sha256=h,post_markers=n,level=l,checked_at=dt)
             for u,s,t,h,n,l,dt in db.execute("SELECT url,status,title,page_sha256,post_markers,level,last_checked_utc FROM pages ORDER BY level,url")]
-    unique_topic_ids = set(topic_identity(site,x["url"]) for x in data if x["status"]=="ok" and is_topic(site,x["url"]))
-    discovered_topic_ids = set(topic_identity(site,x["url"]) for x in data if is_topic(site,x["url"]))
+    unique_topic_ids = set(topic_identity(site,x["url"]) for x in data if x["status"]=="ok" and is_topic(site,x["url"])) - {None}
+    discovered_topic_ids = set(topic_identity(site,x["url"]) for x in data if is_topic(site,x["url"])) - {None}
     report.update({"ended_utc":datetime.now(timezone.utc).isoformat(),
                    "pages_fetched_this_run":fetched,
                    "topics_fetched_this_run":fetched_topics,
