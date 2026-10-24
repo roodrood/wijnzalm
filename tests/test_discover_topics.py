@@ -23,7 +23,9 @@ class DiscoveryTests(unittest.TestCase):
     def test_topic_identity_deduplicates_pages(self):
         one="https://www.lapassionduvin.com/forum/bordeaux/1234-chateau-example"
         two=one+"?start=30"
+        self.assertEqual(topic_identity("lpv",one),"1234")
         self.assertEqual(topic_identity("lpv",one),topic_identity("lpv",two))
+        self.assertEqual(topic_identity("vinejo","http://www.vinejo.freebb.be/thread-456.html"),"456")
         self.assertEqual(topic_identity("vinejo","http://www.vinejo.freebb.be/thread-456.html"),
                          topic_identity("vinejo","http://www.vinejo.freebb.be/thread-456-page-2.html"))
     def test_html_no_post_text_stored(self):
