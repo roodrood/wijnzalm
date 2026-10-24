@@ -32,7 +32,7 @@ def canonical(site,url):
         start=parse_qs(p.query).get("start",["0"])[0]
         query=urlencode({"start":start}) if start.isdigit() and 0<int(start)<20000 else ""
     else:
-        if not re.match(r"^/thread-4841(?:-page-\d+|-post-\d+)?\.html$",p.path):
+        if not re.match(r"^/thread-4841(?:-page-\d+)?\.html$",p.path):
             return None
         query=""
     return urlunparse((p.scheme,p.netloc,path if site=="lpv" else p.path,"",query,""))
