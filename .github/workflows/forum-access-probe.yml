@@ -34,7 +34,18 @@ jobs:
           run_id=$(gh run list --workflow forum-access-probe.yml --branch feature/forum-access-probe --status success --limit 5 --json databaseId --jq '.[0].databaseId // empty')
           if [ -n "$run_id" ]; then
             echo "Attempting to resume metadata from prior successful run $run_id"
-            gh run download "$run_id" --name wineforum-connection-report --dir probe-results || echo 'Prior artifact unavailable; starting fresh'
+            mkdir -p previous-artifact
+            if gh run download "$run_id" --name wineforum-connection-report --dir previous-artifact; then
+              for site in lpv vinejo; do
+                if [ -s "previous-artifact/${site}-discovery/frontier.sqlite" ]; then
+                  mkdir -p "probe-results/${site}-discovery"
+                  cp "previous-artifact/${site}-discovery/frontier.sqlite" "probe-results/${site}-discovery/frontier.sqlite"
+                  echo "Restored ${site} SQLite checkpoint"
+                fi
+              done
+            else
+              echo 'Previous artifact unavailable; starting fresh'
+            fi
           fi
       - name: Discover La Passion du Vin discussion metadata (bounded)
         run: python tools/discover_topics.py --site lpv --max-pages 12 --max-topics 9 --out probe-results/lpv-discovery
