@@ -1,0 +1,10 @@
+# Forum content and crawl databases are not committed to the public repository.
+probe-results/
+data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+.env
+permissions.json
+__pycache__/
+*.pyc
