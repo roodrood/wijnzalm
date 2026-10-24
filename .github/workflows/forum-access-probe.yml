@@ -1,0 +1,60 @@
+name: Wine forum access probe
+on:
+  push:
+    branches: [feature/forum-access-probe]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Offline tests
+        run: python -m unittest discover -s tests -v
+      - name: Forum connectivity and robots checks
+        run: python tools/probe_forums.py --output probe-results
+      - name: Inspect one robots-permitted topic per forum
+        run: python tools/structure_probe.py
+      - name: Index a maximum of two topic pages for LPV
+        run: python tools/metadata_crawl.py --site lpv --max-pages 2 --out probe-results/lpv-topic
+      - name: Index a maximum of two topic pages for Vinejo
+        run: python tools/metadata_crawl.py --site vinejo --max-pages 2 --out probe-results/vinejo-topic
+      - name: Restore previous metadata frontier when available
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          mkdir -p probe-results
+          run_id=$(gh run list --workflow forum-access-probe.yml --branch feature/forum-access-probe --status success --limit 5 --json databaseId --jq '.[0].databaseId // empty')
+          if [ -n "$run_id" ]; then
+            echo "Attempting to resume metadata from prior successful run $run_id"
+            mkdir -p previous-artifact
+            if gh run download "$run_id" --name wineforum-connection-report --dir previous-artifact; then
+              for site in lpv vinejo; do
+                if [ -s "previous-artifact/${site}-discovery/frontier.sqlite" ]; then
+                  mkdir -p "probe-results/${site}-discovery"
+                  cp "previous-artifact/${site}-discovery/frontier.sqlite" "probe-results/${site}-discovery/frontier.sqlite"
+                  echo "Restored ${site} SQLite checkpoint"
+                fi
+              done
+            else
+              echo 'Previous artifact unavailable; starting fresh'
+            fi
+          fi
+      - name: Discover La Passion du Vin discussion metadata (bounded)
+        run: python tools/discover_topics.py --site lpv --max-pages 12 --max-topics 9 --out probe-results/lpv-discovery
+      - name: Discover Vinejo discussion metadata (bounded)
+        run: python tools/discover_topics.py --site vinejo --max-pages 12 --max-topics 9 --out probe-results/vinejo-discovery
+      - name: Upload diagnostic report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wineforum-connection-report
+          path: probe-results/
+          if-no-files-found: warn
