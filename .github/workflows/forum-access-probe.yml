@@ -24,6 +24,10 @@ jobs:
         run: python tools/metadata_crawl.py --site lpv --max-pages 2 --out probe-results/lpv-topic
       - name: Index a maximum of two topic pages for Vinejo
         run: python tools/metadata_crawl.py --site vinejo --max-pages 2 --out probe-results/vinejo-topic
+      - name: Discover La Passion du Vin discussion metadata (bounded)
+        run: python tools/discover_topics.py --site lpv --max-pages 12 --max-topics 9 --out probe-results/lpv-discovery
+      - name: Discover Vinejo discussion metadata (bounded)
+        run: python tools/discover_topics.py --site vinejo --max-pages 12 --max-topics 9 --out probe-results/vinejo-discovery
       - name: Upload diagnostic report
         if: always()
         uses: actions/upload-artifact@v4
