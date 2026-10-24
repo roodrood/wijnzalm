@@ -28,13 +28,14 @@ def canonical(site,url):
         return None
     if site=="lpv":
         if not re.search(r"/47053-domaine-de-suremain/?$",p.path):return None
+        path=p.path if p.path.startswith("/forum/") else "/forum"+p.path
         start=parse_qs(p.query).get("start",["0"])[0]
         query=urlencode({"start":start}) if start.isdigit() and 0<int(start)<20000 else ""
     else:
         if not re.match(r"^/thread-4841(?:-page-\d+|-post-\d+)?\.html$",p.path):
             return None
         query=""
-    return urlunparse((p.scheme,p.netloc,p.path,"",query,""))
+    return urlunparse((p.scheme,p.netloc,path if site=="lpv" else p.path,"",query,""))
 
 class Metadata(HTMLParser):
     def __init__(self):
