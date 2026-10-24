@@ -20,6 +20,10 @@ jobs:
         run: python tools/probe_forums.py --output probe-results
       - name: Inspect one robots-permitted topic per forum
         run: python tools/structure_probe.py
+      - name: Index a maximum of two topic pages for LPV
+        run: python tools/metadata_crawl.py --site lpv --max-pages 2 --out probe-results/lpv-topic
+      - name: Index a maximum of two topic pages for Vinejo
+        run: python tools/metadata_crawl.py --site vinejo --max-pages 2 --out probe-results/vinejo-topic
       - name: Upload diagnostic report
         if: always()
         uses: actions/upload-artifact@v4
