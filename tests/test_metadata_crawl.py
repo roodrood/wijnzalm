@@ -11,6 +11,11 @@ class CrawlerTests(unittest.TestCase):
     def test_pagination(self):
         u="https://www.lapassionduvin.com/forum/bourgognebeaujolais/47053-domaine-de-suremain?start=20"
         self.assertEqual(canonical("lpv",u),u)
+    def test_alias_dedup(self):
+        with_forum="https://www.lapassionduvin.com/forum/bourgognebeaujolais/47053-domaine-de-suremain"
+        without_forum="https://www.lapassionduvin.com/bourgognebeaujolais/47053-domaine-de-suremain"
+        self.assertEqual(canonical("lpv",without_forum),with_forum)
+        self.assertIsNone(canonical("vinejo","http://www.vinejo.freebb.be/thread-4841-post-66214.html"))
     def test_no_message_content_saved(self):
         h=Metadata()
         h.feed('<html><title>Example</title><div class="kmsg">PRIVATE A</div><div class="post_content">PRIVATE B</div></html>')
